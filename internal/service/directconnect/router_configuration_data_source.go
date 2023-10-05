@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package directconnect
 
 import (
@@ -14,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
+// @SDKDataSource("aws_dx_router_configuration")
 func DataSourceRouterConfiguration() *schema.Resource {
 	return &schema.Resource{
 		ReadWithoutTimeout: dataSourceRouterConfigurationRead,
@@ -77,12 +81,12 @@ const (
 )
 
 func dataSourceRouterConfigurationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).DirectConnectConn
+	conn := meta.(*conns.AWSClient).DirectConnectConn(ctx)
 
 	routerTypeIdentifier := d.Get("router_type_identifier").(string)
 	virtualInterfaceId := d.Get("virtual_interface_id").(string)
 
-	out, err := findRouterConfigurationByTypeAndVif(conn, routerTypeIdentifier, virtualInterfaceId)
+	out, err := findRouterConfigurationByTypeAndVif(ctx, conn, routerTypeIdentifier, virtualInterfaceId)
 	if err != nil {
 		return create.DiagError(names.DirectConnect, create.ErrActionReading, DSNameRouterConfiguration, virtualInterfaceId, err)
 	}
@@ -90,9 +94,7 @@ func dataSourceRouterConfigurationRead(ctx context.Context, d *schema.ResourceDa
 	d.SetId(fmt.Sprintf("%s:%s", virtualInterfaceId, routerTypeIdentifier))
 
 	d.Set("customer_router_config", out.CustomerRouterConfig)
-	if router_type_out := out.Router.RouterTypeIdentifier; router_type_out != nil {
-		d.Set("router_type_identifier", router_type_out)
-	}
+	d.Set("router_type_identifier", out.Router.RouterTypeIdentifier)
 	d.Set("virtual_interface_id", out.VirtualInterfaceId)
 	d.Set("virtual_interface_name", out.VirtualInterfaceName)
 
@@ -103,13 +105,13 @@ func dataSourceRouterConfigurationRead(ctx context.Context, d *schema.ResourceDa
 	return nil
 }
 
-func findRouterConfigurationByTypeAndVif(conn *directconnect.DirectConnect, routerTypeIdentifier string, virtualInterfaceId string) (*directconnect.DescribeRouterConfigurationOutput, error) {
+func findRouterConfigurationByTypeAndVif(ctx context.Context, conn *directconnect.DirectConnect, routerTypeIdentifier string, virtualInterfaceId string) (*directconnect.DescribeRouterConfigurationOutput, error) {
 	input := &directconnect.DescribeRouterConfigurationInput{
 		RouterTypeIdentifier: aws.String(routerTypeIdentifier),
 		VirtualInterfaceId:   aws.String(virtualInterfaceId),
 	}
 
-	output, err := conn.DescribeRouterConfiguration(input)
+	output, err := conn.DescribeRouterConfigurationWithContext(ctx, input)
 
 	if err != nil {
 		return nil, err

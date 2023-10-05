@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package appconfig
 
 import (
@@ -19,6 +22,7 @@ const (
 	ResExtensionAssociation = "ExtensionAssociation"
 )
 
+// @SDKResource("aws_appconfig_extension_association")
 func ResourceExtensionAssociation() *schema.Resource {
 	return &schema.Resource{
 		CreateWithoutTimeout: resourceExtensionAssociationCreate,
@@ -59,7 +63,7 @@ func ResourceExtensionAssociation() *schema.Resource {
 }
 
 func resourceExtensionAssociationCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).AppConfigConn
+	conn := meta.(*conns.AWSClient).AppConfigConn(ctx)
 
 	in := appconfig.CreateExtensionAssociationInput{
 		ExtensionIdentifier: aws.String(d.Get("extension_arn").(string)),
@@ -73,11 +77,11 @@ func resourceExtensionAssociationCreate(ctx context.Context, d *schema.ResourceD
 	out, err := conn.CreateExtensionAssociationWithContext(ctx, &in)
 
 	if err != nil {
-		return create.DiagError(names.AppConfig, create.ErrActionCreating, ResExtensionAssociation, d.Get("name").(string), err)
+		return create.DiagError(names.AppConfig, create.ErrActionCreating, ResExtensionAssociation, d.Get("extension_arn").(string), err)
 	}
 
 	if out == nil {
-		return create.DiagError(names.AppConfig, create.ErrActionCreating, ResExtensionAssociation, d.Get("name").(string), errors.New("No Extension Association returned with create request."))
+		return create.DiagError(names.AppConfig, create.ErrActionCreating, ResExtensionAssociation, d.Get("extension_arn").(string), errors.New("No Extension Association returned with create request."))
 	}
 
 	d.SetId(aws.StringValue(out.Id))
@@ -86,7 +90,7 @@ func resourceExtensionAssociationCreate(ctx context.Context, d *schema.ResourceD
 }
 
 func resourceExtensionAssociationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).AppConfigConn
+	conn := meta.(*conns.AWSClient).AppConfigConn(ctx)
 
 	out, err := FindExtensionAssociationById(ctx, conn, d.Id())
 
@@ -110,7 +114,7 @@ func resourceExtensionAssociationRead(ctx context.Context, d *schema.ResourceDat
 }
 
 func resourceExtensionAssociationUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).AppConfigConn
+	conn := meta.(*conns.AWSClient).AppConfigConn(ctx)
 	requestUpdate := false
 
 	in := &appconfig.UpdateExtensionAssociationInput{
@@ -126,11 +130,11 @@ func resourceExtensionAssociationUpdate(ctx context.Context, d *schema.ResourceD
 		out, err := conn.UpdateExtensionAssociationWithContext(ctx, in)
 
 		if err != nil {
-			return create.DiagError(names.AppConfig, create.ErrActionWaitingForUpdate, ResExtensionAssociation, d.Get("name").(string), err)
+			return create.DiagError(names.AppConfig, create.ErrActionWaitingForUpdate, ResExtensionAssociation, d.Id(), err)
 		}
 
 		if out == nil {
-			return create.DiagError(names.AppConfig, create.ErrActionWaitingForUpdate, ResExtensionAssociation, d.Get("name").(string), errors.New("No ExtensionAssociation returned with update request."))
+			return create.DiagError(names.AppConfig, create.ErrActionWaitingForUpdate, ResExtensionAssociation, d.Id(), errors.New("No ExtensionAssociation returned with update request."))
 		}
 	}
 
@@ -138,7 +142,7 @@ func resourceExtensionAssociationUpdate(ctx context.Context, d *schema.ResourceD
 }
 
 func resourceExtensionAssociationDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).AppConfigConn
+	conn := meta.(*conns.AWSClient).AppConfigConn(ctx)
 
 	_, err := conn.DeleteExtensionAssociationWithContext(ctx, &appconfig.DeleteExtensionAssociationInput{
 		ExtensionAssociationId: aws.String(d.Id()),

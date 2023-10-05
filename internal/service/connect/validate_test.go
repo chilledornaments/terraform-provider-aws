@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package connect
 
 import (
@@ -5,6 +8,8 @@ import (
 )
 
 func TestValidDeskPhoneNumber(t *testing.T) {
+	t.Parallel()
+
 	validNumbers := []string{
 		"+12345678912",
 		"+6598765432",
@@ -29,6 +34,8 @@ func TestValidDeskPhoneNumber(t *testing.T) {
 }
 
 func TestValidPhoneNumberPrefix(t *testing.T) {
+	t.Parallel()
+
 	validPrefixes := []string{
 		"+12345",
 		"+659876",

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package rds
 
 import (
@@ -9,6 +12,8 @@ import (
 )
 
 func TestExpandParameters(t *testing.T) {
+	t.Parallel()
+
 	expanded := []interface{}{
 		map[string]interface{}{
 			"name":         "character_set_client",
@@ -33,6 +38,8 @@ func TestExpandParameters(t *testing.T) {
 }
 
 func TestFlattenParameters(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		Input  []*rds.Parameter
 		Output []map[string]interface{}

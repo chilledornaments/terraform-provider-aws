@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package attrmap
 
 import (
@@ -125,7 +128,6 @@ func (m AttributeMap) ResourceDataToAPIAttributesCreate(d *schema.ResourceData) 
 
 			if attributeInfo.isIAMPolicy && apiAttributeValue != "" {
 				policy, err := structure.NormalizeJsonString(apiAttributeValue)
-
 				if err != nil {
 					return nil, fmt.Errorf("policy (%s) is invalid JSON: %w", apiAttributeValue, err)
 				}

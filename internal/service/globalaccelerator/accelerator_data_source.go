@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package globalaccelerator
 
 import (
@@ -10,19 +13,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-provider-aws/internal/flex"
 	"github.com/hashicorp/terraform-provider-aws/internal/framework"
+	"github.com/hashicorp/terraform-provider-aws/internal/framework/flex"
 	fwtypes "github.com/hashicorp/terraform-provider-aws/internal/framework/types"
 	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 )
 
-func init() {
-	_sp.registerFrameworkDataSourceFactory(newDataSourceAccelerator)
-}
-
-// newDataSourceAccelerator instantiates a new DataSource for the aws_globalaccelerator_accelerator data source.
+// @FrameworkDataSource
 func newDataSourceAccelerator(context.Context) (datasource.DataSourceWithConfigure, error) {
-	return &dataSourceAccelerator{}, nil
+	d := &dataSourceAccelerator{}
+	d.SetMigratedFromPluginSDK(true)
+
+	return d, nil
 }
 
 type dataSourceAccelerator struct {
@@ -55,6 +57,9 @@ func (d *dataSourceAccelerator) Schema(ctx context.Context, req datasource.Schem
 				Computed: true,
 			},
 			"dns_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"dual_stack_dns_name": schema.StringAttribute{
 				Computed: true,
 			},
 			"enabled": schema.BoolAttribute{
@@ -99,7 +104,7 @@ func (d *dataSourceAccelerator) Read(ctx context.Context, request datasource.Rea
 		return
 	}
 
-	conn := d.Meta().GlobalAcceleratorConn
+	conn := d.Meta().GlobalAcceleratorConn(ctx)
 	ignoreTagsConfig := d.Meta().IgnoreTagsConfig
 
 	var results []*globalaccelerator.Accelerator
@@ -151,8 +156,9 @@ func (d *dataSourceAccelerator) Read(ctx context.Context, request datasource.Rea
 		data.ARN = fwtypes.ARNValue(v)
 	}
 	data.DnsName = flex.StringToFrameworkLegacy(ctx, accelerator.DnsName)
+	data.DualStackDNSName = flex.StringToFrameworkLegacy(ctx, accelerator.DualStackDnsName)
 	data.Enabled = flex.BoolToFrameworkLegacy(ctx, accelerator.Enabled)
-	data.HostedZoneID = types.StringValue(route53ZoneID)
+	data.HostedZoneID = types.StringValue(d.Meta().GlobalAcceleratorHostedZoneID())
 	data.ID = types.StringValue(acceleratorARN)
 	data.IpAddressType = flex.StringToFrameworkLegacy(ctx, accelerator.IpAddressType)
 	data.IpSets = d.flattenIPSetsFramework(ctx, accelerator.IpSets)
@@ -168,7 +174,7 @@ func (d *dataSourceAccelerator) Read(ctx context.Context, request datasource.Rea
 
 	data.Attributes = d.flattenAcceleratorAttributesFramework(ctx, attributes)
 
-	tags, err := ListTagsWithContext(ctx, conn, acceleratorARN)
+	tags, err := listTags(ctx, conn, acceleratorARN)
 
 	if err != nil {
 		response.Diagnostics.AddError("listing tags for Global Accelerator Accelerator", err.Error())
@@ -176,7 +182,7 @@ func (d *dataSourceAccelerator) Read(ctx context.Context, request datasource.Rea
 		return
 	}
 
-	data.Tags = flex.FlattenFrameworkStringValueMap(ctx, tags.IgnoreAWS().IgnoreConfig(ignoreTagsConfig).Map())
+	data.Tags = flex.FlattenFrameworkStringValueMapLegacy(ctx, tags.IgnoreAWS().IgnoreConfig(ignoreTagsConfig).Map())
 
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 }
@@ -192,7 +198,7 @@ func (d *dataSourceAccelerator) flattenIPSetFramework(ctx context.Context, apiOb
 	}
 
 	attributes := map[string]attr.Value{
-		"ip_addresses": flex.FlattenFrameworkStringList(ctx, apiObject.IpAddresses),
+		"ip_addresses": flex.FlattenFrameworkStringListLegacy(ctx, apiObject.IpAddresses),
 		"ip_family":    flex.StringToFrameworkLegacy(ctx, apiObject.IpFamily),
 	}
 
@@ -241,14 +247,15 @@ func (d *dataSourceAccelerator) flattenAcceleratorAttributesFramework(ctx contex
 }
 
 type dataSourceAcceleratorData struct {
-	ARN           fwtypes.ARN  `tfsdk:"arn"`
-	Attributes    types.List   `tfsdk:"attributes"`
-	DnsName       types.String `tfsdk:"dns_name"`
-	Enabled       types.Bool   `tfsdk:"enabled"`
-	HostedZoneID  types.String `tfsdk:"hosted_zone_id"`
-	ID            types.String `tfsdk:"id"`
-	IpAddressType types.String `tfsdk:"ip_address_type"`
-	IpSets        types.List   `tfsdk:"ip_sets"`
-	Name          types.String `tfsdk:"name"`
-	Tags          types.Map    `tfsdk:"tags"`
+	ARN              fwtypes.ARN  `tfsdk:"arn"`
+	Attributes       types.List   `tfsdk:"attributes"`
+	DnsName          types.String `tfsdk:"dns_name"`
+	DualStackDNSName types.String `tfsdk:"dual_stack_dns_name"`
+	Enabled          types.Bool   `tfsdk:"enabled"`
+	HostedZoneID     types.String `tfsdk:"hosted_zone_id"`
+	ID               types.String `tfsdk:"id"`
+	IpAddressType    types.String `tfsdk:"ip_address_type"`
+	IpSets           types.List   `tfsdk:"ip_sets"`
+	Name             types.String `tfsdk:"name"`
+	Tags             types.Map    `tfsdk:"tags"`
 }

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package meta
 
 import (
@@ -13,13 +16,12 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/internal/slices"
 )
 
-func init() {
-	_sp.registerFrameworkDataSourceFactory(newDataSourceService)
-}
-
-// newDataSourceService instantiates a new DataSource for the aws_service data source.
+// @FrameworkDataSource
 func newDataSourceService(context.Context) (datasource.DataSourceWithConfigure, error) {
-	return &dataSourceService{}, nil
+	d := &dataSourceService{}
+	d.SetMigratedFromPluginSDK(true)
+
+	return d, nil
 }
 
 type dataSourceService struct {

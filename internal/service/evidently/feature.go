@@ -1,14 +1,17 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package evidently
 
 import (
 	"context"
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/YakDriver/regexache"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchevidently"
 	"github.com/hashicorp/aws-sdk-go-base/v2/awsv1shim/v2/tfawserr"
@@ -16,19 +19,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
-	"github.com/hashicorp/terraform-provider-aws/internal/experimental/nullable"
 	"github.com/hashicorp/terraform-provider-aws/internal/flex"
 	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
+	"github.com/hashicorp/terraform-provider-aws/internal/types/nullable"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
+	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
+// @SDKResource("aws_evidently_feature", name="Feature")
+// @Tags(identifierAttribute="arn")
 func ResourceFeature() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceFeatureCreate,
-		ReadContext:   resourceFeatureRead,
-		UpdateContext: resourceFeatureUpdate,
-		DeleteContext: resourceFeatureDelete,
+		CreateWithoutTimeout: resourceFeatureCreate,
+		ReadWithoutTimeout:   resourceFeatureRead,
+		UpdateWithoutTimeout: resourceFeatureUpdate,
+		DeleteWithoutTimeout: resourceFeatureDelete,
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -55,7 +61,7 @@ func ResourceFeature() *schema.Resource {
 				Computed: true,
 				ValidateFunc: validation.All(
 					validation.StringLenBetween(1, 127),
-					validation.StringMatch(regexp.MustCompile(`^[-a-zA-Z0-9._]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
+					validation.StringMatch(regexache.MustCompile(`^[0-9A-Za-z_.-]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
 				),
 			},
 			"description": {
@@ -66,10 +72,10 @@ func ResourceFeature() *schema.Resource {
 			"entity_overrides": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				ValidateDiagFunc: verify.ValidAllDiag(
+				ValidateDiagFunc: validation.AllDiag(
 					validation.MapKeyLenBetween(1, 512),
 					validation.MapValueLenBetween(1, 127),
-					validation.MapValueMatch(regexp.MustCompile(`^[-a-zA-Z0-9._]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
+					validation.MapValueMatch(regexache.MustCompile(`^[0-9A-Za-z_.-]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
 				),
 				Elem: &schema.Schema{Type: schema.TypeString},
 			},
@@ -105,7 +111,7 @@ func ResourceFeature() *schema.Resource {
 				ForceNew: true,
 				ValidateFunc: validation.All(
 					validation.StringLenBetween(1, 127),
-					validation.StringMatch(regexp.MustCompile(`^[-a-zA-Z0-9._]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
+					validation.StringMatch(regexache.MustCompile(`^[0-9A-Za-z_.-]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
 				),
 			},
 			"project": {
@@ -114,7 +120,7 @@ func ResourceFeature() *schema.Resource {
 				ForceNew: true,
 				ValidateFunc: validation.All(
 					validation.StringLenBetween(0, 2048),
-					validation.StringMatch(regexp.MustCompile(`(^[a-zA-Z0-9._-]*$)|(arn:[^:]*:[^:]*:[^:]*:[^:]*:project/[a-zA-Z0-9._-]*)`), "name or arn of the project"),
+					validation.StringMatch(regexache.MustCompile(`(^[0-9A-Za-z_.-]*$)|(arn:[^:]*:[^:]*:[^:]*:[^:]*:project/[0-9A-Za-z_.-]*)`), "name or arn of the project"),
 				),
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					// case 1: User-defined string (old) is a name and is the suffix of API-returned string (new). Check non-empty old in resoure creation scenario
@@ -126,8 +132,8 @@ func ResourceFeature() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"tags":     tftags.TagsSchema(),
-			"tags_all": tftags.TagsSchemaComputed(),
+			names.AttrTags:    tftags.TagsSchema(),
+			names.AttrTagsAll: tftags.TagsSchemaComputed(),
 			"value_type": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -144,7 +150,7 @@ func ResourceFeature() *schema.Resource {
 							Required: true,
 							ValidateFunc: validation.All(
 								validation.StringLenBetween(1, 127),
-								validation.StringMatch(regexp.MustCompile(`^[-a-zA-Z0-9._]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
+								validation.StringMatch(regexache.MustCompile(`^[0-9A-Za-z_.-]*$`), "alphanumeric and can contain hyphens, underscores, and periods"),
 							),
 						},
 						"value": {
@@ -193,16 +199,14 @@ func ResourceFeature() *schema.Resource {
 }
 
 func resourceFeatureCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).EvidentlyConn
-	defaultTagsConfig := meta.(*conns.AWSClient).DefaultTagsConfig
-	tags := defaultTagsConfig.MergeTags(tftags.New(d.Get("tags").(map[string]interface{})))
+	conn := meta.(*conns.AWSClient).EvidentlyConn(ctx)
 
 	name := d.Get("name").(string)
 	project := d.Get("project").(string)
-
 	input := &cloudwatchevidently.CreateFeatureInput{
 		Name:       aws.String(name),
 		Project:    aws.String(project),
+		Tags:       getTagsIn(ctx),
 		Variations: expandVariations(d.Get("variations").(*schema.Set).List()),
 	}
 
@@ -222,11 +226,6 @@ func resourceFeatureCreate(ctx context.Context, d *schema.ResourceData, meta int
 		input.EvaluationStrategy = aws.String(v.(string))
 	}
 
-	if len(tags) > 0 {
-		input.Tags = Tags(tags.IgnoreAWS())
-	}
-
-	log.Printf("[DEBUG] Creating CloudWatch Evidently Feature: %s", input)
 	output, err := conn.CreateFeatureWithContext(ctx, input)
 
 	if err != nil {
@@ -237,7 +236,7 @@ func resourceFeatureCreate(ctx context.Context, d *schema.ResourceData, meta int
 	// concat Feature name and Project Name or ARN to be used in Read for imports
 	d.SetId(fmt.Sprintf("%s:%s", aws.StringValue(output.Feature.Name), aws.StringValue(output.Feature.Project)))
 
-	if _, err := waitFeatureCreated(conn, d.Id(), d.Timeout(schema.TimeoutCreate)); err != nil {
+	if _, err := waitFeatureCreated(ctx, conn, d.Id(), d.Timeout(schema.TimeoutCreate)); err != nil {
 		return diag.Errorf("waiting for CloudWatch Evidently Feature (%s) for Project (%s) creation: %s", name, project, err)
 	}
 
@@ -245,9 +244,7 @@ func resourceFeatureCreate(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceFeatureRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).EvidentlyConn
-	defaultTagsConfig := meta.(*conns.AWSClient).DefaultTagsConfig
-	ignoreTagsConfig := meta.(*conns.AWSClient).IgnoreTagsConfig
+	conn := meta.(*conns.AWSClient).EvidentlyConn(ctx)
 
 	featureName, projectNameOrARN, err := FeatureParseID(d.Id())
 
@@ -287,21 +284,13 @@ func resourceFeatureRead(ctx context.Context, d *schema.ResourceData, meta inter
 	d.Set("status", feature.Status)
 	d.Set("value_type", feature.ValueType)
 
-	tags := KeyValueTags(feature.Tags).IgnoreAWS().IgnoreConfig(ignoreTagsConfig)
-
-	if err := d.Set("tags", tags.RemoveDefaultConfig(defaultTagsConfig).Map()); err != nil {
-		return diag.Errorf("setting tags: %s", err)
-	}
-
-	if err := d.Set("tags_all", tags.Map()); err != nil {
-		return diag.Errorf("setting tags_all: %s", err)
-	}
+	setTagsOut(ctx, feature.Tags)
 
 	return nil
 }
 
 func resourceFeatureUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).EvidentlyConn
+	conn := meta.(*conns.AWSClient).EvidentlyConn(ctx)
 
 	if d.HasChanges("default_variation", "description", "entity_overrides", "evaluation_strategy", "variations") {
 		name := d.Get("name").(string)
@@ -332,16 +321,8 @@ func resourceFeatureUpdate(ctx context.Context, d *schema.ResourceData, meta int
 			return diag.Errorf("updating CloudWatch Evidently Feature (%s) for Project (%s): %s", name, project, err)
 		}
 
-		if _, err := waitFeatureUpdated(conn, d.Id(), d.Timeout(schema.TimeoutUpdate)); err != nil {
+		if _, err := waitFeatureUpdated(ctx, conn, d.Id(), d.Timeout(schema.TimeoutUpdate)); err != nil {
 			return diag.Errorf("waiting for CloudWatch Evidently Feature (%s) for Project (%s) update: %s", name, project, err)
-		}
-	}
-
-	if d.HasChange("tags_all") {
-		o, n := d.GetChange("tags_all")
-
-		if err := UpdateTagsWithContext(ctx, conn, d.Get("arn").(string), o, n); err != nil {
-			return diag.Errorf("updating tags: %s", err)
 		}
 	}
 
@@ -349,7 +330,7 @@ func resourceFeatureUpdate(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceFeatureDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	conn := meta.(*conns.AWSClient).EvidentlyConn
+	conn := meta.(*conns.AWSClient).EvidentlyConn(ctx)
 
 	name := d.Get("name").(string)
 	project := d.Get("project").(string)
@@ -368,7 +349,7 @@ func resourceFeatureDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("deleting CloudWatch Evidently Feature (%s) for Project (%s): %s", name, project, err)
 	}
 
-	if _, err := waitFeatureDeleted(conn, d.Id(), d.Timeout(schema.TimeoutDelete)); err != nil {
+	if _, err := waitFeatureDeleted(ctx, conn, d.Id(), d.Timeout(schema.TimeoutDelete)); err != nil {
 		return diag.Errorf("waiting for CloudWatch Evidently Feature (%s) for Project (%s) deletion: %s", name, project, err)
 	}
 

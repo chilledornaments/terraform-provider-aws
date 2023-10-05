@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 //go:build sweep
 // +build sweep
 
@@ -6,11 +9,11 @@ package budgets
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/budgets"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-provider-aws/internal/sweep"
 )
 
@@ -30,18 +33,19 @@ func init() {
 }
 
 func sweepBudgetActions(region string) error {
-	client, err := sweep.SharedRegionalSweepClient(region)
+	ctx := sweep.Context(region)
+	client, err := sweep.SharedRegionalSweepClient(ctx, region)
 	if err != nil {
 		return fmt.Errorf("error getting client: %w", err)
 	}
-	conn := client.(*conns.AWSClient).BudgetsConn
-	accountID := client.(*conns.AWSClient).AccountID
+	conn := client.BudgetsConn(ctx)
+	accountID := client.AccountID
 	input := &budgets.DescribeBudgetActionsForAccountInput{
 		AccountId: aws.String(accountID),
 	}
 	sweepResources := make([]sweep.Sweepable, 0)
 
-	err = conn.DescribeBudgetActionsForAccountPages(input, func(page *budgets.DescribeBudgetActionsForAccountOutput, lastPage bool) bool {
+	err = conn.DescribeBudgetActionsForAccountPagesWithContext(ctx, input, func(page *budgets.DescribeBudgetActionsForAccountOutput, lastPage bool) bool {
 		if page == nil {
 			return !lastPage
 		}
@@ -66,7 +70,7 @@ func sweepBudgetActions(region string) error {
 		return fmt.Errorf("error listing Budget Actions (%s): %w", region, err)
 	}
 
-	err = sweep.SweepOrchestrator(sweepResources)
+	err = sweep.SweepOrchestrator(ctx, sweepResources)
 
 	if err != nil {
 		return fmt.Errorf("error sweeping Budget Actions (%s): %w", region, err)
@@ -76,26 +80,33 @@ func sweepBudgetActions(region string) error {
 }
 
 func sweepBudgets(region string) error { // nosemgrep:ci.budgets-in-func-name
-	client, err := sweep.SharedRegionalSweepClient(region)
+	ctx := sweep.Context(region)
+	client, err := sweep.SharedRegionalSweepClient(ctx, region)
 	if err != nil {
 		return fmt.Errorf("error getting client: %w", err)
 	}
-	conn := client.(*conns.AWSClient).BudgetsConn
-	accountID := client.(*conns.AWSClient).AccountID
+	conn := client.BudgetsConn(ctx)
+	accountID := client.AccountID
 	input := &budgets.DescribeBudgetsInput{
 		AccountId: aws.String(accountID),
 	}
 	sweepResources := make([]sweep.Sweepable, 0)
 
-	err = conn.DescribeBudgetsPages(input, func(page *budgets.DescribeBudgetsOutput, lastPage bool) bool {
+	err = conn.DescribeBudgetsPagesWithContext(ctx, input, func(page *budgets.DescribeBudgetsOutput, lastPage bool) bool {
 		if page == nil {
 			return !lastPage
 		}
 
 		for _, v := range page.Budgets {
+			// skip budgets we have configured to track our spend
+			budgetName := aws.StringValue(v.BudgetName)
+			if !strings.HasPrefix(budgetName, "tf-acc") {
+				continue
+			}
+
 			r := ResourceBudget()
 			d := r.Data(nil)
-			d.SetId(BudgetCreateResourceID(accountID, aws.StringValue(v.BudgetName)))
+			d.SetId(BudgetCreateResourceID(accountID, budgetName))
 
 			sweepResources = append(sweepResources, sweep.NewSweepResource(r, d, client))
 		}
@@ -112,7 +123,7 @@ func sweepBudgets(region string) error { // nosemgrep:ci.budgets-in-func-name
 		return fmt.Errorf("error listing Budgets (%s): %w", region, err)
 	}
 
-	err = sweep.SweepOrchestrator(sweepResources)
+	err = sweep.SweepOrchestrator(ctx, sweepResources)
 
 	if err != nil {
 		return fmt.Errorf("error sweeping Budgets (%s): %w", region, err)

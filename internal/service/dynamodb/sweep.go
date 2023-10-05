@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 //go:build sweep
 // +build sweep
 
@@ -14,9 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/aws-sdk-go-base/v2/awsv1shim/v2/tfawserr"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-provider-aws/internal/sweep"
+	"github.com/hashicorp/terraform-provider-aws/internal/sweep/sdk"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 )
 
@@ -33,19 +37,20 @@ func init() {
 }
 
 func sweepTables(region string) error {
-	client, err := sweep.SharedRegionalSweepClient(region)
+	ctx := sweep.Context(region)
+	client, err := sweep.SharedRegionalSweepClient(ctx, region)
 
 	if err != nil {
 		return fmt.Errorf("error getting client: %s", err)
 	}
 
-	conn := client.(*conns.AWSClient).DynamoDBConn
+	conn := client.DynamoDBConn(ctx)
 	sweepResources := make([]sweep.Sweepable, 0)
 	var errs *multierror.Error
 	var g multierror.Group
 	var mutex = &sync.Mutex{}
 
-	err = conn.ListTablesPages(&dynamodb.ListTablesInput{}, func(page *dynamodb.ListTablesOutput, lastPage bool) bool {
+	err = conn.ListTablesPagesWithContext(ctx, &dynamodb.ListTablesInput{}, func(page *dynamodb.ListTablesOutput, lastPage bool) bool {
 		if page == nil {
 			return !lastPage
 		}
@@ -60,7 +65,7 @@ func sweepTables(region string) error {
 			// read concurrently and gather errors
 			g.Go(func() error {
 				// Need to Read first to fill in `replica` attribute
-				err := r.Read(d, client)
+				err := sdk.ReadResource(ctx, r, d, client)
 
 				if err != nil {
 					return err
@@ -90,7 +95,7 @@ func sweepTables(region string) error {
 		errs = multierror.Append(errs, fmt.Errorf("error concurrently reading DynamoDB Tables: %w", err))
 	}
 
-	if err = sweep.SweepOrchestrator(sweepResources); err != nil {
+	if err = sweep.SweepOrchestrator(ctx, sweepResources); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("error sweeping DynamoDB Tables for %s: %w", region, err))
 	}
 
@@ -103,13 +108,14 @@ func sweepTables(region string) error {
 }
 
 func sweepBackups(region string) error {
-	client, err := sweep.SharedRegionalSweepClient(region)
+	ctx := sweep.Context(region)
+	client, err := sweep.SharedRegionalSweepClient(ctx, region)
 
 	if err != nil {
 		return fmt.Errorf("error getting client: %s", err)
 	}
 
-	conn := client.(*conns.AWSClient).DynamoDBConn
+	conn := client.DynamoDBConn(ctx)
 	sweepables := make([]sweep.Sweepable, 0)
 	var errs *multierror.Error
 	var g multierror.Group
@@ -117,7 +123,7 @@ func sweepBackups(region string) error {
 	input := &dynamodb.ListBackupsInput{
 		BackupType: aws.String(dynamodb.BackupTypeFilterAll),
 	}
-	err = listBackupsPages(conn, input, func(page *dynamodb.ListBackupsOutput, lastPage bool) bool {
+	err = listBackupsPages(ctx, conn, input, func(page *dynamodb.ListBackupsOutput, lastPage bool) bool {
 		if page == nil {
 			return !lastPage
 		}
@@ -145,7 +151,7 @@ func sweepBackups(region string) error {
 		errs = multierror.Append(errs, fmt.Errorf("reading DynamoDB Backups: %w", err))
 	}
 
-	if err = sweep.SweepOrchestrator(sweepables); err != nil {
+	if err = sweep.SweepOrchestrator(ctx, sweepables); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("sweeping DynamoDB Backups for %s: %w", region, err))
 	}
 
@@ -166,16 +172,16 @@ func (bs backupSweeper) Delete(ctx context.Context, timeout time.Duration, optFn
 	input := &dynamodb.DeleteBackupInput{
 		BackupArn: bs.arn,
 	}
-	err := tfresource.RetryContext(ctx, timeout, func() *resource.RetryError {
+	err := tfresource.Retry(ctx, timeout, func() *retry.RetryError {
 		_, err := bs.conn.DeleteBackupWithContext(ctx, input)
 		if tfawserr.ErrCodeEquals(err, dynamodb.ErrCodeBackupNotFoundException) {
 			return nil
 		}
 		if tfawserr.ErrCodeEquals(err, dynamodb.ErrCodeBackupInUseException, dynamodb.ErrCodeLimitExceededException) {
-			return resource.RetryableError(err)
+			return retry.RetryableError(err)
 		}
 		if err != nil {
-			return resource.NonRetryableError(err)
+			return retry.NonRetryableError(err)
 		}
 
 		return nil

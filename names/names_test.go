@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package names
 
 import (
@@ -9,6 +12,8 @@ import (
 )
 
 func TestProviderPackageForAlias(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		TestName string
 		Input    string
@@ -36,7 +41,10 @@ func TestProviderPackageForAlias(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.TestName, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := ProviderPackageForAlias(testCase.Input)
 
 			if err != nil && !testCase.Error {
@@ -55,36 +63,30 @@ func TestProviderPackageForAlias(t *testing.T) {
 }
 
 func TestServicesForDirectories(t *testing.T) {
+	t.Parallel()
+
 	nonExisting := []string{
 		"alexaforbusiness",
 		"amplifybackend",
 		"amplifyuibuilder",
 		"apigatewaymanagementapi",
 		"appconfigdata",
-		"appflow",
-		"appintegrations",
 		"applicationcostprofiler",
 		"applicationdiscovery",
 		"applicationinsights",
 		"appregistry",
-		"auditmanager",
 		"augmentedairuntime",
 		"backupgateway",
 		"billingconductor",
 		"braket",
-		"ce",
 		"chimesdkidentity",
 		"chimesdkmeetings",
 		"chimesdkmessaging",
 		"clouddirectory",
 		"cloudsearchdomain",
-		"cloudwatchevidently",
-		"cloudwatchrum",
 		"codeguruprofiler",
-		"codegurureviewer",
 		"codestar",
 		"cognitosync",
-		"comprehend",
 		"comprehendmedical",
 		"computeoptimizer",
 		"connectcontactlens",
@@ -111,9 +113,7 @@ func TestServicesForDirectories(t *testing.T) {
 		"greengrassv2",
 		"groundstation",
 		"health",
-		"healthlake",
 		"honeycode",
-		"inspector2",
 		"iot1clickdevices",
 		"iot1clickprojects",
 		"iotdata",
@@ -128,7 +128,6 @@ func TestServicesForDirectories(t *testing.T) {
 		"iotthingsgraph",
 		"iottwinmaker",
 		"iotwireless",
-		"kendra",
 		"kinesisvideoarchivedmedia",
 		"kinesisvideomedia",
 		"kinesisvideosignaling",
@@ -136,12 +135,12 @@ func TestServicesForDirectories(t *testing.T) {
 		"lexmodelsv2",
 		"lexruntime",
 		"lexruntimev2",
-		"location",
 		"lookoutequipment",
 		"lookoutforvision",
 		"lookoutmetrics",
 		"lookoutvision",
 		"machinelearning",
+		"macie",
 		"managedblockchain",
 		"marketplacecatalog",
 		"marketplacecommerceanalytics",
@@ -172,14 +171,11 @@ func TestServicesForDirectories(t *testing.T) {
 		"polly",
 		"proton",
 		"qldbsession",
-		"rbin",
 		"rdsdata",
-		"redshiftdata",
 		"rekognition",
 		"resiliencehub",
 		"robomaker",
 		"route53recoverycluster",
-		"rum",
 		"sagemakera2iruntime",
 		"sagemakeredge",
 		"sagemakeredgemanager",
@@ -187,18 +183,14 @@ func TestServicesForDirectories(t *testing.T) {
 		"sagemakerruntime",
 		"savingsplans",
 		"servicecatalogappregistry",
-		"sesv2",
 		"sms",
 		"snowball",
 		"snowdevicemanagement",
-		"ssmcontacts",
-		"ssmincidents",
 		"sso",
 		"ssooidc",
 		"support",
 		"textract",
 		"timestreamquery",
-		"transcribe",
 		"transcribestreaming",
 		"translate",
 		"voiceid",
@@ -211,7 +203,10 @@ func TestServicesForDirectories(t *testing.T) {
 	}
 
 	for _, testCase := range ProviderPackages() {
+		testCase := testCase
 		t.Run(testCase, func(t *testing.T) {
+			t.Parallel()
+
 			wd, err := os.Getwd()
 			if err != nil {
 				t.Errorf("error reading working directory: %s", err)
@@ -231,6 +226,8 @@ func TestServicesForDirectories(t *testing.T) {
 }
 
 func TestProviderNameUpper(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		TestName string
 		Input    string
@@ -264,7 +261,10 @@ func TestProviderNameUpper(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.TestName, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := ProviderNameUpper(testCase.Input)
 
 			if err != nil && !testCase.Error {
@@ -283,6 +283,8 @@ func TestProviderNameUpper(t *testing.T) {
 }
 
 func TestFullHumanFriendly(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		TestName string
 		Input    string
@@ -314,12 +316,6 @@ func TestFullHumanFriendly(t *testing.T) {
 			Error:    false,
 		},
 		{
-			TestName: DRS,
-			Input:    DRS,
-			Expected: "AWS DRS (Elastic Disaster Recovery)",
-			Error:    false,
-		},
-		{
 			TestName: "doesnotexist",
 			Input:    "doesnotexist",
 			Expected: "",
@@ -328,7 +324,10 @@ func TestFullHumanFriendly(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.TestName, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := FullHumanFriendly(testCase.Input)
 
 			if err != nil && !testCase.Error {
@@ -347,6 +346,8 @@ func TestFullHumanFriendly(t *testing.T) {
 }
 
 func TestAWSGoV1Package(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		TestName string
 		Input    string
@@ -361,8 +362,8 @@ func TestAWSGoV1Package(t *testing.T) {
 		},
 		{
 			TestName: "same as AWS",
-			Input:    Translate,
-			Expected: Translate,
+			Input:    CloudTrail,
+			Expected: CloudTrail,
 			Error:    false,
 		},
 		{
@@ -386,7 +387,10 @@ func TestAWSGoV1Package(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.TestName, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := AWSGoV1Package(testCase.Input)
 
 			if err != nil && !testCase.Error {
@@ -405,6 +409,8 @@ func TestAWSGoV1Package(t *testing.T) {
 }
 
 func TestAWSGoV1ClientName(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		TestName string
 		Input    string
@@ -450,7 +456,10 @@ func TestAWSGoV1ClientName(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.TestName, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := AWSGoV1ClientTypeName(testCase.Input)
 
 			if err != nil && !testCase.Error {

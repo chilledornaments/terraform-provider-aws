@@ -1,15 +1,18 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package networkmanager_test
 
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"testing"
 
+	"github.com/YakDriver/regexache"
 	"github.com/aws/aws-sdk-go/service/networkmanager"
-	sdkacctest "github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	sdkacctest "github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	tfnetworkmanager "github.com/hashicorp/terraform-provider-aws/internal/service/networkmanager"
@@ -17,6 +20,7 @@ import (
 )
 
 func TestAccNetworkManagerVPCAttachment_basic(t *testing.T) {
+	ctx := acctest.Context(t)
 	var v networkmanager.VpcAttachment
 	resourceName := "aws_networkmanager_vpc_attachment.test"
 	coreNetworkResourceName := "aws_networkmanager_core_network.test"
@@ -24,16 +28,16 @@ func TestAccNetworkManagerVPCAttachment_basic(t *testing.T) {
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, networkmanager.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckVPCAttachmentDestroy,
+		CheckDestroy:             testAccCheckVPCAttachmentDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVPCAttachmentConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
-					acctest.MatchResourceAttrGlobalARN(resourceName, "arn", "networkmanager", regexp.MustCompile(`attachment/.+`)),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
+					acctest.MatchResourceAttrGlobalARN(resourceName, "arn", "networkmanager", regexache.MustCompile(`attachment/.+`)),
 					resource.TestCheckResourceAttr(resourceName, "attachment_policy_rule_number", "0"),
 					resource.TestCheckResourceAttr(resourceName, "attachment_type", "VPC"),
 					resource.TestCheckResourceAttrPair(resourceName, "core_network_arn", coreNetworkResourceName, "arn"),
@@ -61,21 +65,22 @@ func TestAccNetworkManagerVPCAttachment_basic(t *testing.T) {
 }
 
 func TestAccNetworkManagerVPCAttachment_disappears(t *testing.T) {
+	ctx := acctest.Context(t)
 	var v networkmanager.VpcAttachment
 	resourceName := "aws_networkmanager_vpc_attachment.test"
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, networkmanager.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckVPCAttachmentDestroy,
+		CheckDestroy:             testAccCheckVPCAttachmentDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVPCAttachmentConfig_basic(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
-					acctest.CheckResourceDisappears(acctest.Provider, tfnetworkmanager.ResourceVPCAttachment(), resourceName),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
+					acctest.CheckResourceDisappears(ctx, acctest.Provider, tfnetworkmanager.ResourceVPCAttachment(), resourceName),
 				),
 				ExpectNonEmptyPlan: true,
 			},
@@ -84,20 +89,21 @@ func TestAccNetworkManagerVPCAttachment_disappears(t *testing.T) {
 }
 
 func TestAccNetworkManagerVPCAttachment_tags(t *testing.T) {
+	ctx := acctest.Context(t)
 	var v networkmanager.VpcAttachment
 	resourceName := "aws_networkmanager_vpc_attachment.test"
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, networkmanager.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckVPCAttachmentDestroy,
+		CheckDestroy:             testAccCheckVPCAttachmentDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVPCAttachmentConfig_tags1(rName, "segment", "shared"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.segment", "shared"),
 				),
@@ -105,7 +111,7 @@ func TestAccNetworkManagerVPCAttachment_tags(t *testing.T) {
 			{
 				Config: testAccVPCAttachmentConfig_tags2(rName, "segment", "shared", "Name", "test"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "2"),
 					resource.TestCheckResourceAttr(resourceName, "tags.segment", "shared"),
 					resource.TestCheckResourceAttr(resourceName, "tags.Name", "test"),
@@ -114,7 +120,7 @@ func TestAccNetworkManagerVPCAttachment_tags(t *testing.T) {
 			{
 				Config: testAccVPCAttachmentConfig_tags1(rName, "segment", "shared"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.segment", "shared"),
 				),
@@ -129,20 +135,21 @@ func TestAccNetworkManagerVPCAttachment_tags(t *testing.T) {
 }
 
 func TestAccNetworkManagerVPCAttachment_update(t *testing.T) {
+	ctx := acctest.Context(t)
 	var v networkmanager.VpcAttachment
 	resourceName := "aws_networkmanager_vpc_attachment.test"
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, networkmanager.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckVPCAttachmentDestroy,
+		CheckDestroy:             testAccCheckVPCAttachmentDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVPCAttachmentConfig_updates(rName, 2, true, false),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckVPCAttachmentExists(resourceName, &v),
+					testAccCheckVPCAttachmentExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttr(resourceName, "subnet_arns.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "options.0.appliance_mode_support", "true"),
 					resource.TestCheckResourceAttr(resourceName, "options.0.ipv6_support", "false"),
@@ -182,7 +189,7 @@ func TestAccNetworkManagerVPCAttachment_update(t *testing.T) {
 	})
 }
 
-func testAccCheckVPCAttachmentExists(n string, v *networkmanager.VpcAttachment) resource.TestCheckFunc {
+func testAccCheckVPCAttachmentExists(ctx context.Context, n string, v *networkmanager.VpcAttachment) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
 		if !ok {
@@ -193,9 +200,9 @@ func testAccCheckVPCAttachmentExists(n string, v *networkmanager.VpcAttachment) 
 			return fmt.Errorf("No Network Manager VPC Attachment ID is set")
 		}
 
-		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkManagerConn
+		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkManagerConn(ctx)
 
-		output, err := tfnetworkmanager.FindVPCAttachmentByID(context.Background(), conn, rs.Primary.ID)
+		output, err := tfnetworkmanager.FindVPCAttachmentByID(ctx, conn, rs.Primary.ID)
 
 		if err != nil {
 			return err
@@ -207,28 +214,30 @@ func testAccCheckVPCAttachmentExists(n string, v *networkmanager.VpcAttachment) 
 	}
 }
 
-func testAccCheckVPCAttachmentDestroy(s *terraform.State) error {
-	conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkManagerConn
+func testAccCheckVPCAttachmentDestroy(ctx context.Context) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkManagerConn(ctx)
 
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "aws_networkmanager_vpc_attachment" {
-			continue
+		for _, rs := range s.RootModule().Resources {
+			if rs.Type != "aws_networkmanager_vpc_attachment" {
+				continue
+			}
+
+			_, err := tfnetworkmanager.FindVPCAttachmentByID(ctx, conn, rs.Primary.ID)
+
+			if tfresource.NotFound(err) {
+				continue
+			}
+
+			if err != nil {
+				return err
+			}
+
+			return fmt.Errorf("Network Manager VPC Attachment %s still exists", rs.Primary.ID)
 		}
 
-		_, err := tfnetworkmanager.FindVPCAttachmentByID(context.Background(), conn, rs.Primary.ID)
-
-		if tfresource.NotFound(err) {
-			continue
-		}
-
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("Network Manager VPC Attachment %s still exists", rs.Primary.ID)
+		return nil
 	}
-
-	return nil
 }
 
 func testAccVPCAttachmentConfig_base(rName string) string {
@@ -268,11 +277,15 @@ resource "aws_networkmanager_global_network" "test" {
 
 resource "aws_networkmanager_core_network" "test" {
   global_network_id = aws_networkmanager_global_network.test.id
-  policy_document   = data.aws_networkmanager_core_network_policy_document.test.json
 
   tags = {
     Name = %[1]q
   }
+}
+
+resource "aws_networkmanager_core_network_policy_attachment" "test" {
+  core_network_id = aws_networkmanager_core_network.test.id
+  policy_document = data.aws_networkmanager_core_network_policy_document.test.json
 }
 
 data "aws_networkmanager_core_network_policy_document" "test" {
@@ -322,7 +335,7 @@ func testAccVPCAttachmentConfig_basic(rName string) string {
 	return acctest.ConfigCompose(testAccVPCAttachmentConfig_base(rName), `
 resource "aws_networkmanager_vpc_attachment" "test" {
   subnet_arns     = aws_subnet.test[*].arn
-  core_network_id = aws_networkmanager_core_network.test.id
+  core_network_id = aws_networkmanager_core_network_policy_attachment.test.core_network_id
   vpc_arn         = aws_vpc.test.arn
 }
 
@@ -337,7 +350,7 @@ func testAccVPCAttachmentConfig_tags1(rName, tagKey1, tagValue1 string) string {
 	return acctest.ConfigCompose(testAccVPCAttachmentConfig_base(rName), fmt.Sprintf(`
 resource "aws_networkmanager_vpc_attachment" "test" {
   subnet_arns     = [aws_subnet.test[0].arn]
-  core_network_id = aws_networkmanager_core_network.test.id
+  core_network_id = aws_networkmanager_core_network_policy_attachment.test.core_network_id
   vpc_arn         = aws_vpc.test.arn
 
   tags = {
@@ -356,7 +369,7 @@ func testAccVPCAttachmentConfig_tags2(rName, tagKey1, tagValue1, tagKey2, tagVal
 	return acctest.ConfigCompose(testAccVPCAttachmentConfig_base(rName), fmt.Sprintf(`
 resource "aws_networkmanager_vpc_attachment" "test" {
   subnet_arns     = [aws_subnet.test[0].arn]
-  core_network_id = aws_networkmanager_core_network.test.id
+  core_network_id = aws_networkmanager_core_network_policy_attachment.test.core_network_id
   vpc_arn         = aws_vpc.test.arn
 
   tags = {
@@ -376,7 +389,7 @@ func testAccVPCAttachmentConfig_updates(rName string, nSubnets int, applianceMod
 	return acctest.ConfigCompose(testAccVPCAttachmentConfig_base(rName), fmt.Sprintf(`
 resource "aws_networkmanager_vpc_attachment" "test" {
   subnet_arns     = slice(aws_subnet.test[*].arn, 0, %[2]d)
-  core_network_id = aws_networkmanager_core_network.test.id
+  core_network_id = aws_networkmanager_core_network_policy_attachment.test.core_network_id
   vpc_arn         = aws_vpc.test.arn
 
   options {

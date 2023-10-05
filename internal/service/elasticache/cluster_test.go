@@ -1,18 +1,22 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package elasticache_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/YakDriver/regexache"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elasticache"
-	sdkacctest "github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	sdkacctest "github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	tfelasticache "github.com/hashicorp/terraform-provider-aws/internal/service/elasticache"
@@ -30,6 +34,7 @@ func testAccErrorCheckSkip(t *testing.T) resource.ErrorCheckFunc {
 }
 
 func TestAccElastiCacheCluster_Engine_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -39,15 +44,15 @@ func TestAccElastiCacheCluster_Engine_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineMemcached(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.id", "0001"),
 					resource.TestCheckResourceAttrSet(resourceName, "configuration_endpoint"),
 					resource.TestCheckResourceAttrSet(resourceName, "cluster_address"),
@@ -68,6 +73,7 @@ func TestAccElastiCacheCluster_Engine_memcached(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_Engine_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -77,21 +83,21 @@ func TestAccElastiCacheCluster_Engine_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineRedis(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "auto_minor_version_upgrade", "true"),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.id", "0001"),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.outpost_arn", ""),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^7\.[[:digit:]]+\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^7\.[[:digit:]]+\.[[:digit:]]+$`)),
 					resource.TestCheckResourceAttr(resourceName, "ip_discovery", "ipv4"),
 					resource.TestCheckResourceAttr(resourceName, "network_type", "ipv4"),
 					resource.TestCheckNoResourceAttr(resourceName, "outpost_mode"),
@@ -111,6 +117,7 @@ func TestAccElastiCacheCluster_Engine_redis(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_Engine_redis_v5(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -120,15 +127,15 @@ func TestAccElastiCacheCluster_Engine_redis_v5(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineRedisV5(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "5.0.6"),
 					// Even though it is ignored, the API returns `true` in this case
@@ -148,25 +155,27 @@ func TestAccElastiCacheCluster_Engine_redis_v5(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_Engine_None(t *testing.T) {
+	ctx := acctest.Context(t)
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineNone(rName),
 				// Verify "ExactlyOneOf" in the schema for "engine" and "replication_group_id"
 				// throws a plan-time error when neither are configured.
-				ExpectError: regexp.MustCompile(`Invalid combination of arguments`),
+				ExpectError: regexache.MustCompile(`Invalid combination of arguments`),
 			},
 		},
 	})
 }
 
 func TestAccElastiCacheCluster_PortRedis_default(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -175,15 +184,15 @@ func TestAccElastiCacheCluster_PortRedis_default(t *testing.T) {
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_redisDefaultPort(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists("aws_elasticache_cluster.test", &ec),
+					testAccCheckClusterExists(ctx, "aws_elasticache_cluster.test", &ec),
 					resource.TestCheckResourceAttr("aws_security_group_rule.test", "to_port", "6379"),
 					resource.TestCheckResourceAttr("aws_security_group_rule.test", "from_port", "6379"),
 				),
@@ -193,6 +202,7 @@ func TestAccElastiCacheCluster_PortRedis_default(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_ParameterGroupName_default(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -202,15 +212,15 @@ func TestAccElastiCacheCluster_ParameterGroupName_default(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_parameterGroupName(rName, "memcached", "1.4.34", "default.memcached1.4"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "memcached"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "1.4.34"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "1.4.34"),
@@ -230,6 +240,7 @@ func TestAccElastiCacheCluster_ParameterGroupName_default(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_ipDiscovery(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -239,15 +250,15 @@ func TestAccElastiCacheCluster_ipDiscovery(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_ipDiscovery(rName, "ipv6", "dual_stack"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "ip_discovery", "ipv6"),
 					resource.TestCheckResourceAttr(resourceName, "network_type", "dual_stack"),
 				),
@@ -265,6 +276,7 @@ func TestAccElastiCacheCluster_ipDiscovery(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_port(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -275,15 +287,15 @@ func TestAccElastiCacheCluster_port(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_port(rName, port),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.id", "0001"),
 					resource.TestCheckResourceAttrSet(resourceName, "configuration_endpoint"),
 					resource.TestCheckResourceAttrSet(resourceName, "cluster_address"),
@@ -304,6 +316,7 @@ func TestAccElastiCacheCluster_port(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_snapshotsWithUpdates(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -312,15 +325,15 @@ func TestAccElastiCacheCluster_snapshotsWithUpdates(t *testing.T) {
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_snapshots(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists("aws_elasticache_cluster.test", &ec),
+					testAccCheckClusterExists(ctx, "aws_elasticache_cluster.test", &ec),
 					resource.TestCheckResourceAttr("aws_elasticache_cluster.test", "snapshot_window", "05:00-09:00"),
 					resource.TestCheckResourceAttr("aws_elasticache_cluster.test", "snapshot_retention_limit", "3"),
 				),
@@ -328,7 +341,7 @@ func TestAccElastiCacheCluster_snapshotsWithUpdates(t *testing.T) {
 			{
 				Config: testAccClusterConfig_snapshotsUpdated(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists("aws_elasticache_cluster.test", &ec),
+					testAccCheckClusterExists(ctx, "aws_elasticache_cluster.test", &ec),
 					resource.TestCheckResourceAttr("aws_elasticache_cluster.test", "snapshot_window", "07:00-09:00"),
 					resource.TestCheckResourceAttr("aws_elasticache_cluster.test", "snapshot_retention_limit", "7"),
 				),
@@ -338,6 +351,7 @@ func TestAccElastiCacheCluster_snapshotsWithUpdates(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NumCacheNodes_decrease(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -347,22 +361,22 @@ func TestAccElastiCacheCluster_NumCacheNodes_decrease(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_numCacheNodes(rName, 3),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "3"),
 				),
 			},
 			{
 				Config: testAccClusterConfig_numCacheNodes(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "1"),
 				),
 			},
@@ -371,6 +385,7 @@ func TestAccElastiCacheCluster_NumCacheNodes_decrease(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NumCacheNodes_increase(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -380,22 +395,22 @@ func TestAccElastiCacheCluster_NumCacheNodes_increase(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_numCacheNodes(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "1"),
 				),
 			},
 			{
 				Config: testAccClusterConfig_numCacheNodes(rName, 3),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "3"),
 				),
 			},
@@ -404,6 +419,7 @@ func TestAccElastiCacheCluster_NumCacheNodes_increase(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NumCacheNodes_increaseWithPreferredAvailabilityZones(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -413,15 +429,15 @@ func TestAccElastiCacheCluster_NumCacheNodes_increaseWithPreferredAvailabilityZo
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_numCacheNodesPreferredAvailabilityZones(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "1"),
 					resource.TestCheckResourceAttr(resourceName, "preferred_availability_zones.#", "1"),
 				),
@@ -429,7 +445,7 @@ func TestAccElastiCacheCluster_NumCacheNodes_increaseWithPreferredAvailabilityZo
 			{
 				Config: testAccClusterConfig_numCacheNodesPreferredAvailabilityZones(rName, 3),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "num_cache_nodes", "3"),
 					resource.TestCheckResourceAttr(resourceName, "preferred_availability_zones.#", "3"),
 				),
@@ -439,6 +455,7 @@ func TestAccElastiCacheCluster_NumCacheNodes_increaseWithPreferredAvailabilityZo
 }
 
 func TestAccElastiCacheCluster_vpc(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -448,16 +465,16 @@ func TestAccElastiCacheCluster_vpc(t *testing.T) {
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_inVPC(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckSubnetGroupExists("aws_elasticache_subnet_group.test", &csg),
-					testAccCheckClusterExists("aws_elasticache_cluster.test", &ec),
+					testAccCheckSubnetGroupExists(ctx, "aws_elasticache_subnet_group.test", &csg),
+					testAccCheckClusterExists(ctx, "aws_elasticache_cluster.test", &ec),
 					testAccCheckClusterAttributes(&ec),
 				),
 			},
@@ -466,6 +483,7 @@ func TestAccElastiCacheCluster_vpc(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_multiAZInVPC(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -475,16 +493,16 @@ func TestAccElastiCacheCluster_multiAZInVPC(t *testing.T) {
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_multiAZInVPC(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckSubnetGroupExists("aws_elasticache_subnet_group.test", &csg),
-					testAccCheckClusterExists("aws_elasticache_cluster.test", &ec),
+					testAccCheckSubnetGroupExists(ctx, "aws_elasticache_subnet_group.test", &csg),
+					testAccCheckClusterExists(ctx, "aws_elasticache_cluster.test", &ec),
 					resource.TestCheckResourceAttr("aws_elasticache_cluster.test", "availability_zone", "Multiple"),
 				),
 			},
@@ -493,6 +511,7 @@ func TestAccElastiCacheCluster_multiAZInVPC(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_AZMode_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -502,35 +521,36 @@ func TestAccElastiCacheCluster_AZMode_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccClusterConfig_azModeMemcached(rName, "unknown"),
-				ExpectError: regexp.MustCompile(`expected az_mode to be one of .*, got unknown`),
+				ExpectError: regexache.MustCompile(`expected az_mode to be one of .*, got unknown`),
 			},
 			{
 				Config:      testAccClusterConfig_azModeMemcached(rName, "cross-az"),
-				ExpectError: regexp.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
+				ExpectError: regexache.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
 			},
 			{
 				Config: testAccClusterConfig_azModeMemcached(rName, "single-az"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "az_mode", "single-az"),
 				),
 			},
 			{
 				Config:      testAccClusterConfig_azModeMemcached(rName, "cross-az"),
-				ExpectError: regexp.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
+				ExpectError: regexache.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
 			},
 		},
 	})
 }
 
 func TestAccElastiCacheCluster_AZMode_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -540,23 +560,23 @@ func TestAccElastiCacheCluster_AZMode_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccClusterConfig_azModeRedis(rName, "unknown"),
-				ExpectError: regexp.MustCompile(`expected az_mode to be one of .*, got unknown`),
+				ExpectError: regexache.MustCompile(`expected az_mode to be one of .*, got unknown`),
 			},
 			{
 				Config:      testAccClusterConfig_azModeRedis(rName, "cross-az"),
-				ExpectError: regexp.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
+				ExpectError: regexache.MustCompile(`az_mode "cross-az" is not supported with num_cache_nodes = 1`),
 			},
 			{
 				Config: testAccClusterConfig_azModeRedis(rName, "single-az"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "az_mode", "single-az"),
 				),
 			},
@@ -565,6 +585,7 @@ func TestAccElastiCacheCluster_AZMode_redis(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_EngineVersion_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -574,15 +595,15 @@ func TestAccElastiCacheCluster_EngineVersion_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineVersionMemcached(rName, "1.4.33"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &pre),
+					testAccCheckClusterExists(ctx, resourceName, &pre),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "1.4.33"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "1.4.33"),
 				),
@@ -590,7 +611,7 @@ func TestAccElastiCacheCluster_EngineVersion_memcached(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionMemcached(rName, "1.4.24"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &mid),
+					testAccCheckClusterExists(ctx, resourceName, &mid),
 					testAccCheckClusterRecreated(&pre, &mid),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "1.4.24"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "1.4.24"),
@@ -599,7 +620,7 @@ func TestAccElastiCacheCluster_EngineVersion_memcached(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionMemcached(rName, "1.4.34"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &post),
+					testAccCheckClusterExists(ctx, resourceName, &post),
 					testAccCheckClusterNotRecreated(&mid, &post),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "1.4.34"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "1.4.34"),
@@ -610,6 +631,7 @@ func TestAccElastiCacheCluster_EngineVersion_memcached(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -619,15 +641,15 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "3.2.6"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v1),
+					testAccCheckClusterExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "3.2.6"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "3.2.6"),
 				),
@@ -635,7 +657,7 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "3.2.4"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v2),
+					testAccCheckClusterExists(ctx, resourceName, &v2),
 					testAccCheckClusterRecreated(&v1, &v2),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "3.2.4"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "3.2.4"),
@@ -644,7 +666,7 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "3.2.10"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v3),
+					testAccCheckClusterExists(ctx, resourceName, &v3),
 					testAccCheckClusterNotRecreated(&v2, &v3),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "3.2.10"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "3.2.10"),
@@ -653,25 +675,25 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "6.0"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v4),
+					testAccCheckClusterExists(ctx, resourceName, &v4),
 					testAccCheckClusterNotRecreated(&v3, &v4),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "6.0"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^6\.0\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^6\.0\.[[:digit:]]+$`)),
 				),
 			},
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "6.2"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v5),
+					testAccCheckClusterExists(ctx, resourceName, &v5),
 					testAccCheckClusterNotRecreated(&v4, &v5),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "6.2"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^6\.2\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^6\.2\.[[:digit:]]+$`)),
 				),
 			},
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "5.0.6"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v6),
+					testAccCheckClusterExists(ctx, resourceName, &v6),
 					testAccCheckClusterRecreated(&v5, &v6),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "5.0.6"),
 					resource.TestCheckResourceAttr(resourceName, "engine_version_actual", "5.0.6"),
@@ -680,19 +702,19 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "6.x"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v7),
+					testAccCheckClusterExists(ctx, resourceName, &v7),
 					testAccCheckClusterNotRecreated(&v6, &v7),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "6.x"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^6\.[[:digit:]]+\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^6\.[[:digit:]]+\.[[:digit:]]+$`)),
 				),
 			},
 			{
 				Config: testAccClusterConfig_engineVersionRedis(rName, "6.0"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &v8),
+					testAccCheckClusterExists(ctx, resourceName, &v8),
 					testAccCheckClusterRecreated(&v7, &v8),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "6.0"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^6\.0\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^6\.0\.[[:digit:]]+$`)),
 				),
 			},
 		},
@@ -700,6 +722,7 @@ func TestAccElastiCacheCluster_EngineVersion_redis(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NodeTypeResize_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -709,22 +732,22 @@ func TestAccElastiCacheCluster_NodeTypeResize_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_nodeTypeMemcached(rName, "cache.t3.small"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &pre),
+					testAccCheckClusterExists(ctx, resourceName, &pre),
 					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
 				),
 			},
 			{
 				Config: testAccClusterConfig_nodeTypeMemcached(rName, "cache.t3.medium"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &post),
+					testAccCheckClusterExists(ctx, resourceName, &post),
 					testAccCheckClusterRecreated(&pre, &post),
 					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
 				),
@@ -734,6 +757,7 @@ func TestAccElastiCacheCluster_NodeTypeResize_memcached(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NodeTypeResize_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -743,22 +767,22 @@ func TestAccElastiCacheCluster_NodeTypeResize_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_nodeTypeRedis(rName, "cache.t3.small"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &pre),
+					testAccCheckClusterExists(ctx, resourceName, &pre),
 					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
 				),
 			},
 			{
 				Config: testAccClusterConfig_nodeTypeRedis(rName, "cache.t3.medium"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &post),
+					testAccCheckClusterExists(ctx, resourceName, &post),
 					testAccCheckClusterNotRecreated(&pre, &post),
 					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
 				),
@@ -768,23 +792,25 @@ func TestAccElastiCacheCluster_NodeTypeResize_redis(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_NumCacheNodes_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccClusterConfig_numCacheNodesRedis(rName, 2),
-				ExpectError: regexp.MustCompile(`engine "redis" does not support num_cache_nodes > 1`),
+				ExpectError: regexache.MustCompile(`engine "redis" does not support num_cache_nodes > 1`),
 			},
 		},
 	})
 }
 
 func TestAccElastiCacheCluster_ReplicationGroupID_availabilityZone(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -796,16 +822,16 @@ func TestAccElastiCacheCluster_ReplicationGroupID_availabilityZone(t *testing.T)
 	replicationGroupResourceName := "aws_elasticache_replication_group.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_replicationGroupIDAvailabilityZone(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckReplicationGroupExists(replicationGroupResourceName, &replicationGroup),
-					testAccCheckClusterExists(clusterResourceName, &cluster),
+					testAccCheckReplicationGroupExists(ctx, replicationGroupResourceName, &replicationGroup),
+					testAccCheckClusterExists(ctx, clusterResourceName, &cluster),
 					testAccCheckClusterReplicationGroupIDAttribute(&cluster, &replicationGroup),
 				),
 			},
@@ -813,7 +839,39 @@ func TestAccElastiCacheCluster_ReplicationGroupID_availabilityZone(t *testing.T)
 	})
 }
 
+func TestAccElastiCacheCluster_ReplicationGroupID_transitEncryption(t *testing.T) {
+	ctx := acctest.Context(t)
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	var cluster elasticache.CacheCluster
+	var replicationGroup elasticache.ReplicationGroup
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	clusterResourceName := "aws_elasticache_cluster.test"
+	replicationGroupResourceName := "aws_elasticache_replication_group.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccClusterConfig_replicationGroupIDTransitEncryption(rName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckReplicationGroupExists(ctx, replicationGroupResourceName, &replicationGroup),
+					testAccCheckClusterExists(ctx, clusterResourceName, &cluster),
+					testAccCheckClusterReplicationGroupIDAttribute(&cluster, &replicationGroup),
+					resource.TestCheckResourceAttr(clusterResourceName, "transit_encryption_enabled", "true"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccElastiCacheCluster_ReplicationGroupID_singleReplica(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -825,16 +883,16 @@ func TestAccElastiCacheCluster_ReplicationGroupID_singleReplica(t *testing.T) {
 	replicationGroupResourceName := "aws_elasticache_replication_group.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_replicationGroupIDReplica(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckReplicationGroupExists(replicationGroupResourceName, &replicationGroup),
-					testAccCheckClusterExists(clusterResourceName, &cluster),
+					testAccCheckReplicationGroupExists(ctx, replicationGroupResourceName, &replicationGroup),
+					testAccCheckClusterExists(ctx, clusterResourceName, &cluster),
 					testAccCheckClusterReplicationGroupIDAttribute(&cluster, &replicationGroup),
 					resource.TestCheckResourceAttr(clusterResourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(clusterResourceName, "node_type", "cache.t3.medium"),
@@ -846,6 +904,7 @@ func TestAccElastiCacheCluster_ReplicationGroupID_singleReplica(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_ReplicationGroupID_multipleReplica(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -858,23 +917,23 @@ func TestAccElastiCacheCluster_ReplicationGroupID_multipleReplica(t *testing.T) 
 	replicationGroupResourceName := "aws_elasticache_replication_group.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_replicationGroupIDReplica(rName, 2),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckReplicationGroupExists(replicationGroupResourceName, &replicationGroup),
+					testAccCheckReplicationGroupExists(ctx, replicationGroupResourceName, &replicationGroup),
 
-					testAccCheckClusterExists(clusterResourceName1, &cluster1),
+					testAccCheckClusterExists(ctx, clusterResourceName1, &cluster1),
 					testAccCheckClusterReplicationGroupIDAttribute(&cluster1, &replicationGroup),
 					resource.TestCheckResourceAttr(clusterResourceName1, "engine", "redis"),
 					resource.TestCheckResourceAttr(clusterResourceName1, "node_type", "cache.t3.medium"),
 					resource.TestCheckResourceAttr(clusterResourceName1, "port", "6379"),
 
-					testAccCheckClusterExists(clusterResourceName2, &cluster2),
+					testAccCheckClusterExists(ctx, clusterResourceName2, &cluster2),
 					testAccCheckClusterReplicationGroupIDAttribute(&cluster2, &replicationGroup),
 					resource.TestCheckResourceAttr(clusterResourceName2, "engine", "redis"),
 					resource.TestCheckResourceAttr(clusterResourceName2, "node_type", "cache.t3.medium"),
@@ -886,23 +945,25 @@ func TestAccElastiCacheCluster_ReplicationGroupID_multipleReplica(t *testing.T) 
 }
 
 func TestAccElastiCacheCluster_Memcached_finalSnapshot(t *testing.T) {
+	ctx := acctest.Context(t)
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccClusterConfig_memcachedFinalSnapshot(rName),
-				ExpectError: regexp.MustCompile(`engine "memcached" does not support final_snapshot_identifier`),
+				ExpectError: regexache.MustCompile(`engine "memcached" does not support final_snapshot_identifier`),
 			},
 		},
 	})
 }
 
 func TestAccElastiCacheCluster_Redis_finalSnapshot(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -912,15 +973,15 @@ func TestAccElastiCacheCluster_Redis_finalSnapshot(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_redisFinalSnapshot(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "final_snapshot_identifier", rName),
 				),
 			},
@@ -929,6 +990,7 @@ func TestAccElastiCacheCluster_Redis_finalSnapshot(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_Redis_autoMinorVersionUpgrade(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -938,15 +1000,15 @@ func TestAccElastiCacheCluster_Redis_autoMinorVersionUpgrade(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_redisAutoMinorVersionUpgrade(rName, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "auto_minor_version_upgrade", "false"),
 				),
 			},
@@ -961,7 +1023,7 @@ func TestAccElastiCacheCluster_Redis_autoMinorVersionUpgrade(t *testing.T) {
 			{
 				Config: testAccClusterConfig_redisAutoMinorVersionUpgrade(rName, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "auto_minor_version_upgrade", "true"),
 				),
 			},
@@ -970,6 +1032,7 @@ func TestAccElastiCacheCluster_Redis_autoMinorVersionUpgrade(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -979,15 +1042,15 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, true, elasticache.DestinationTypeCloudwatchLogs, elasticache.LogFormatText, true, elasticache.DestinationTypeCloudwatchLogs, elasticache.LogFormatText),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination", rName),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination_type", "cloudwatch-logs"),
@@ -1008,7 +1071,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, true, elasticache.DestinationTypeKinesisFirehose, elasticache.LogFormatJson, true, elasticache.DestinationTypeKinesisFirehose, elasticache.LogFormatJson),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination", rName),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination_type", "kinesis-firehose"),
@@ -1029,7 +1092,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, true, elasticache.DestinationTypeCloudwatchLogs, elasticache.LogFormatText, true, elasticache.DestinationTypeKinesisFirehose, elasticache.LogFormatJson),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination", rName),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination_type", "cloudwatch-logs"),
@@ -1044,7 +1107,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, true, elasticache.DestinationTypeKinesisFirehose, elasticache.LogFormatJson, true, elasticache.DestinationTypeCloudwatchLogs, elasticache.LogFormatText),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination", rName),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination_type", "cloudwatch-logs"),
@@ -1059,7 +1122,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, false, "", "", false, "", ""),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckNoResourceAttr(resourceName, "log_delivery_configuration.0.destination"),
 					resource.TestCheckNoResourceAttr(resourceName, "log_delivery_configuration.0.destination_type"),
@@ -1074,7 +1137,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 			{
 				Config: testAccClusterConfig_dataSourceEngineRedisLogDeliveryConfigurations(rName, true, elasticache.DestinationTypeKinesisFirehose, elasticache.LogFormatJson, false, "", ""),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination", rName),
 					resource.TestCheckResourceAttr(resourceName, "log_delivery_configuration.0.destination_type", "kinesis-firehose"),
@@ -1097,6 +1160,7 @@ func TestAccElastiCacheCluster_Engine_Redis_LogDeliveryConfigurations(t *testing
 }
 
 func TestAccElastiCacheCluster_tags(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1106,15 +1170,15 @@ func TestAccElastiCacheCluster_tags(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_tags1(rName, "key1", "value1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1"),
 					resource.TestCheckResourceAttr(resourceName, "tags_all.%", "1"),
@@ -1130,7 +1194,7 @@ func TestAccElastiCacheCluster_tags(t *testing.T) {
 			{
 				Config: testAccClusterConfig_tags2(rName, "key1", "value1updated", "key2", "value2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "2"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1updated"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key2", "value2"),
@@ -1142,7 +1206,7 @@ func TestAccElastiCacheCluster_tags(t *testing.T) {
 			{
 				Config: testAccClusterConfig_tags1(rName, "key2", "value2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key2", "value2"),
 					resource.TestCheckResourceAttr(resourceName, "tags_all.%", "1"),
@@ -1154,6 +1218,7 @@ func TestAccElastiCacheCluster_tags(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_tagWithOtherModification(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1163,15 +1228,15 @@ func TestAccElastiCacheCluster_tagWithOtherModification(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_versionAndTag(rName, "5.0.4", "key1", "value1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "5.0.4"),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1"),
@@ -1182,7 +1247,7 @@ func TestAccElastiCacheCluster_tagWithOtherModification(t *testing.T) {
 			{
 				Config: testAccClusterConfig_versionAndTag(rName, "5.0.6", "key1", "value1updated"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &cluster),
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
 					resource.TestCheckResourceAttr(resourceName, "engine_version", "5.0.6"),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1updated"),
@@ -1194,7 +1259,44 @@ func TestAccElastiCacheCluster_tagWithOtherModification(t *testing.T) {
 	})
 }
 
+func TestAccElastiCacheCluster_TransitEncryption(t *testing.T) {
+	ctx := acctest.Context(t)
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+	var cluster elasticache.CacheCluster
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_elasticache_cluster.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccClusterConfig_transitEncryption(rName, "memcached", "1.6.6"),
+				ExpectError: regexache.MustCompile(`InvalidParameterCombination: Encryption features are not supported for engine version 1.6.6. Please use engine version 1.6.12`),
+			},
+			{
+				Config:      testAccClusterConfig_transitEncryption(rName, "redis", "6.2"),
+				ExpectError: regexache.MustCompile(`InvalidParameterCombination: Encryption feature is not supported for engine REDIS.`),
+			},
+			{
+				Config: testAccClusterConfig_transitEncryption(rName, "memcached", "1.6.12"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckClusterExists(ctx, resourceName, &cluster),
+					resource.TestCheckResourceAttr(resourceName, "engine", "memcached"),
+					resource.TestCheckResourceAttr(resourceName, "engine_version", "1.6.12"),
+					resource.TestCheckResourceAttr(resourceName, "transit_encryption_enabled", "true"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccElastiCacheCluster_outpost_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1204,15 +1306,15 @@ func TestAccElastiCacheCluster_outpost_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t); acctest.PreCheckOutpostsOutposts(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); acctest.PreCheckOutpostsOutposts(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_outpost_memcached(rName, 0),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.id", "0001"),
 					resource.TestCheckResourceAttrSet(resourceName, "cache_nodes.0.outpost_arn"),
 					resource.TestCheckResourceAttrSet(resourceName, "configuration_endpoint"),
@@ -1234,6 +1336,7 @@ func TestAccElastiCacheCluster_outpost_memcached(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_outpost_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1243,19 +1346,19 @@ func TestAccElastiCacheCluster_outpost_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t); acctest.PreCheckOutpostsOutposts(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); acctest.PreCheckOutpostsOutposts(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_outpost_redis(rName, 0),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &ec),
+					testAccCheckClusterExists(ctx, resourceName, &ec),
 					resource.TestCheckResourceAttr(resourceName, "cache_nodes.0.id", "0001"),
 					resource.TestCheckResourceAttrSet(resourceName, "cache_nodes.0.outpost_arn"),
 					resource.TestCheckResourceAttr(resourceName, "engine", "redis"),
-					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexp.MustCompile(`^7\.[[:digit:]]+\.[[:digit:]]+$`)),
+					resource.TestMatchResourceAttr(resourceName, "engine_version_actual", regexache.MustCompile(`^7\.[[:digit:]]+\.[[:digit:]]+$`)),
 					resource.TestCheckResourceAttr(resourceName, "port", "6379"),
 					resource.TestCheckResourceAttr(resourceName, "auto_minor_version_upgrade", "true"),
 				),
@@ -1273,6 +1376,7 @@ func TestAccElastiCacheCluster_outpost_redis(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_outpostID_memcached(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1282,21 +1386,21 @@ func TestAccElastiCacheCluster_outpostID_memcached(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t); acctest.PreCheckOutpostsOutposts(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); acctest.PreCheckOutpostsOutposts(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_outpost_memcached(rName, 0),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &pre),
+					testAccCheckClusterExists(ctx, resourceName, &pre),
 				),
 			},
 			{
 				Config: testAccClusterConfig_outpost_memcached(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &post),
+					testAccCheckClusterExists(ctx, resourceName, &post),
 					testAccCheckClusterRecreated(&pre, &post),
 				),
 			},
@@ -1305,6 +1409,7 @@ func TestAccElastiCacheCluster_outpostID_memcached(t *testing.T) {
 }
 
 func TestAccElastiCacheCluster_outpostID_redis(t *testing.T) {
+	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
@@ -1314,21 +1419,21 @@ func TestAccElastiCacheCluster_outpostID_redis(t *testing.T) {
 	resourceName := "aws_elasticache_cluster.test"
 
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t); acctest.PreCheckOutpostsOutposts(t) },
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); acctest.PreCheckOutpostsOutposts(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, elasticache.EndpointsID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckClusterDestroy,
+		CheckDestroy:             testAccCheckClusterDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccClusterConfig_outpost_redis(rName, 0),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &pre),
+					testAccCheckClusterExists(ctx, resourceName, &pre),
 				),
 			},
 			{
 				Config: testAccClusterConfig_outpost_redis(rName, 1),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckClusterExists(resourceName, &post),
+					testAccCheckClusterExists(ctx, resourceName, &post),
 					testAccCheckClusterNotRecreated(&pre, &post),
 				),
 			},
@@ -1384,30 +1489,32 @@ func testAccCheckClusterRecreated(i, j *elasticache.CacheCluster) resource.TestC
 	}
 }
 
-func testAccCheckClusterDestroy(s *terraform.State) error {
-	conn := acctest.Provider.Meta().(*conns.AWSClient).ElastiCacheConn
+func testAccCheckClusterDestroy(ctx context.Context) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn := acctest.Provider.Meta().(*conns.AWSClient).ElastiCacheConn(ctx)
 
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "aws_elasticache_cluster" {
-			continue
+		for _, rs := range s.RootModule().Resources {
+			if rs.Type != "aws_elasticache_cluster" {
+				continue
+			}
+
+			_, err := tfelasticache.FindCacheClusterByID(ctx, conn, rs.Primary.ID)
+
+			if tfresource.NotFound(err) {
+				continue
+			}
+
+			if err != nil {
+				return err
+			}
+
+			return fmt.Errorf("ElastiCache Cluster %s still exists", rs.Primary.ID)
 		}
-
-		_, err := tfelasticache.FindCacheClusterByID(conn, rs.Primary.ID)
-
-		if tfresource.NotFound(err) {
-			continue
-		}
-
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("ElastiCache Cluster %s still exists", rs.Primary.ID)
+		return nil
 	}
-	return nil
 }
 
-func testAccCheckClusterExists(n string, v *elasticache.CacheCluster) resource.TestCheckFunc {
+func testAccCheckClusterExists(ctx context.Context, n string, v *elasticache.CacheCluster) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
 		if !ok {
@@ -1418,9 +1525,9 @@ func testAccCheckClusterExists(n string, v *elasticache.CacheCluster) resource.T
 			return fmt.Errorf("No ElastiCache Cluster ID is set")
 		}
 
-		conn := acctest.Provider.Meta().(*conns.AWSClient).ElastiCacheConn
+		conn := acctest.Provider.Meta().(*conns.AWSClient).ElastiCacheConn(ctx)
 
-		output, err := tfelasticache.FindCacheClusterByID(conn, rs.Primary.ID)
+		output, err := tfelasticache.FindCacheClusterByID(ctx, conn, rs.Primary.ID)
 
 		if err != nil {
 			return err
@@ -1684,11 +1791,9 @@ resource "aws_elasticache_cluster" "test" {
   node_type              = "cache.t3.small"
   num_cache_nodes        = 1
   engine                 = "redis"
-  engine_version         = "2.8.19"
   port                   = 6379
   subnet_group_name      = aws_elasticache_subnet_group.test.name
   security_group_ids     = [aws_security_group.test.id]
-  parameter_group_name   = "default.redis2.8"
   notification_topic_arn = aws_sns_topic.test.arn
   availability_zone      = data.aws_availability_zones.available.names[0]
 }
@@ -1762,12 +1867,10 @@ resource "aws_security_group_rule" "test" {
 }
 
 resource "aws_elasticache_cluster" "test" {
-  cluster_id           = %[1]q
-  engine               = "redis"
-  engine_version       = "5.0.4"
-  node_type            = "cache.t2.micro"
-  num_cache_nodes      = 1
-  parameter_group_name = "default.redis5.0"
+  cluster_id      = %[1]q
+  engine          = "redis"
+  node_type       = "cache.t2.micro"
+  num_cache_nodes = 1
 }
 `, rName)
 }
@@ -1870,42 +1973,65 @@ resource "aws_elasticache_cluster" "test" {
 func testAccClusterConfig_replicationGroupIDAvailabilityZone(rName string) string {
 	return acctest.ConfigCompose(acctest.ConfigAvailableAZsNoOptIn(), fmt.Sprintf(`
 resource "aws_elasticache_replication_group" "test" {
-  replication_group_description = "Terraform Acceptance Testing"
-  replication_group_id          = %[1]q
-  node_type                     = "cache.t3.medium"
-  number_cache_clusters         = 1
-  port                          = 6379
+  description          = "Terraform Acceptance Testing"
+  replication_group_id = %[1]q
+  node_type            = "cache.t3.medium"
+  num_cache_clusters   = 1
+  port                 = 6379
 
   lifecycle {
-    ignore_changes = [number_cache_clusters]
+    ignore_changes = [num_cache_clusters]
   }
 }
 
 resource "aws_elasticache_cluster" "test" {
   availability_zone    = data.aws_availability_zones.available.names[0]
-  cluster_id           = "%[1]s1"
+  cluster_id           = "%[1]s-1"
   replication_group_id = aws_elasticache_replication_group.test.id
 }
 `, rName))
 }
 
+func testAccClusterConfig_replicationGroupIDTransitEncryption(rName string, enabled bool) string {
+	return acctest.ConfigCompose(acctest.ConfigAvailableAZsNoOptIn(), fmt.Sprintf(`
+resource "aws_elasticache_replication_group" "test" {
+  description                = "Terraform Acceptance Testing"
+  replication_group_id       = %[1]q
+  node_type                  = "cache.t3.medium"
+  num_cache_clusters         = 1
+  port                       = 6379
+  transit_encryption_enabled = %[2]t
+
+  lifecycle {
+    ignore_changes = [num_cache_clusters]
+  }
+}
+
+resource "aws_elasticache_cluster" "test" {
+  availability_zone    = data.aws_availability_zones.available.names[0]
+  cluster_id           = "%[1]s-1"
+  replication_group_id = aws_elasticache_replication_group.test.id
+}
+`, rName, enabled))
+}
+
 func testAccClusterConfig_replicationGroupIDReplica(rName string, count int) string {
 	return fmt.Sprintf(`
 resource "aws_elasticache_replication_group" "test" {
-  replication_group_description = "Terraform Acceptance Testing"
-  replication_group_id          = %[1]q
-  node_type                     = "cache.t3.medium"
-  number_cache_clusters         = 1
-  port                          = 6379
+  description          = "Terraform Acceptance Testing"
+  replication_group_id = %[1]q
+  node_type            = "cache.t3.medium"
+  num_cache_clusters   = 1
+  port                 = 6379
 
   lifecycle {
-    ignore_changes = [number_cache_clusters]
+    ignore_changes = [num_cache_clusters]
   }
 }
 
 resource "aws_elasticache_cluster" "test" {
   count                = %[2]d
-  cluster_id           = "%[1]s${count.index}"
+  cluster_id           = "%[1]s-${count.index}"
   replication_group_id = aws_elasticache_replication_group.test.id
 }
 `, rName, count)
@@ -2023,11 +2149,13 @@ resource "aws_iam_role" "r" {
 
 resource "aws_kinesis_firehose_delivery_stream" "ds" {
   name        = %[1]q
-  destination = "s3"
-  s3_configuration {
-    role_arn   = aws_iam_role.r.arn
+  destination = "extended_s3"
+
+  extended_s3_configuration {
     bucket_arn = aws_s3_bucket.b.arn
+    role_arn   = aws_iam_role.r.arn
   }
+
   lifecycle {
     ignore_changes = [
       tags["LogDeliveryEnabled"],
@@ -2114,4 +2242,18 @@ resource "aws_elasticache_cluster" "test" {
   }
 }
 `, rName, version, tagKey1, tagValue1)
+}
+
+func testAccClusterConfig_transitEncryption(rName, engine, version string) string {
+	return fmt.Sprintf(`
+resource "aws_elasticache_cluster" "test" {
+  apply_immediately          = true
+  cluster_id                 = "%[1]s"
+  engine                     = "%[2]s"
+  engine_version             = "%[3]s"
+  node_type                  = "cache.t3.medium"
+  num_cache_nodes            = 1
+  transit_encryption_enabled = true
+}
+`, rName, engine, version)
 }

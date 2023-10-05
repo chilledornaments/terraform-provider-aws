@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package depgraph
 
 import (
@@ -5,6 +8,8 @@ import (
 )
 
 func TestStack(t *testing.T) {
+	t.Parallel()
+
 	s := newStack()
 
 	if got, expected := s.len(), 0; got != expected {

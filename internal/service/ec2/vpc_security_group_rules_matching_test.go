@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package ec2_test
 
 import (
@@ -10,6 +13,8 @@ import (
 
 // testing rulesForGroupPermissions
 func TestRulesMixedMatching(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		local  []interface{}
 		remote []map[string]interface{}

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package meta
 
 import (
@@ -14,19 +17,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-provider-aws/internal/flex"
 	"github.com/hashicorp/terraform-provider-aws/internal/framework"
+	"github.com/hashicorp/terraform-provider-aws/internal/framework/flex"
 	tfslices "github.com/hashicorp/terraform-provider-aws/internal/slices"
 	"golang.org/x/exp/slices"
 )
 
-func init() {
-	_sp.registerFrameworkDataSourceFactory(newDataSourceIPRanges)
-}
-
-// newDataSourceIPRanges instantiates a new DataSource for the aws_ip_ranges data source.
+// @FrameworkDataSource
 func newDataSourceIPRanges(context.Context) (datasource.DataSourceWithConfigure, error) {
-	return &dataSourceIPRanges{}, nil
+	d := &dataSourceIPRanges{}
+	d.SetMigratedFromPluginSDK(true)
+
+	return d, nil
 }
 
 type dataSourceIPRanges struct {
@@ -151,8 +153,8 @@ func (d *dataSourceIPRanges) Read(ctx context.Context, request datasource.ReadRe
 
 	data.CreateDate = types.StringValue(ipRanges.CreateDate)
 	data.ID = types.StringValue(ipRanges.SyncToken)
-	data.IPv4CIDRBlocks = flex.FlattenFrameworkStringValueList(ctx, ipv4Prefixes)
-	data.IPv6CIDRBlocks = flex.FlattenFrameworkStringValueList(ctx, ipv6Prefixes)
+	data.IPv4CIDRBlocks = flex.FlattenFrameworkStringValueListLegacy(ctx, ipv4Prefixes)
+	data.IPv6CIDRBlocks = flex.FlattenFrameworkStringValueListLegacy(ctx, ipv6Prefixes)
 	data.SyncToken = types.Int64Value(int64(syncToken))
 	data.URL = types.StringValue(url)
 
